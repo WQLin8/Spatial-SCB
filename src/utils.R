@@ -676,3 +676,330 @@ plot_all_celltype_boxbreak <- function(df_long, outfile) {
 
   ggsave(outfile, p, width = 12, height = 4, device = cairo_pdf)
 }
+
+######### LR colocalization function ##############
+LR_Colco <- function(obj, 
+                    sample_id, 
+                    location_path, 
+                    distance,
+                    LRpair){
+
+    DefaultAssay(obj) <- "Spatial.056um"
+    obj_sub <- subset(obj, sampleID == sample_id)
+
+    expression_raw <- as.matrix(GetAssayData(obj_sub, layer = "counts", assay = "Spatial.056um"))
+    expression <- expression_raw[rownames(expression_raw[(rowSums(expression_raw > 0) / ncol(expression_raw)) >= 0.001,]),] # Only take genes that  expressed in at least 1% of the spots
+
+    if (grepl("\\.parquet$", location_path, ignore.case = TRUE)) {
+      location <- read_parquet(location_path) %>%
+        as.data.frame() %>%
+        dplyr::select(barcode, imagerow = 3, imagecol = 4)
+    } else if (grepl("\\.csv$", location_path, ignore.case = TRUE)) {
+      location <- read.csv(location_path) %>%
+        as.data.frame() %>%
+        dplyr::select(barcode, imagerow = 3, imagecol = 4)
+    } else {
+      stop("Unsupported file format: must be .parquet or .csv")
+    }
+    
+    rownames(location) <- paste0(sample_id, "_", location$barcode)
+    location <- location[,-1]
+    colnames(location) <- c("imagerow", "imagecol")
+    location <- location[colnames(obj_sub), ]
+    LR <- SpaGene_LR(expression, location, LRpair = LRpair, knn = distance)
+    LR <- LR[which(LR$adjp < 0.05),]
+
+    return(LR)
+}
+
+########### Spatial cell-cell communication function ################
+LR2CellComm <- function(obj, 
+                        sample_id, 
+                        location_path, 
+                        distance,
+                        LRpair){
+
+    DefaultAssay(obj) <- "Spatial.056um"
+    obj_sub <- subset(obj, sampleID == sample_id)
+
+    expression_raw <- as.matrix(GetAssayData(obj_sub, layer = "counts", assay = "Spatial.056um"))
+    expression <- expression_raw[rownames(expression_raw[(rowSums(expression_raw > 0) / ncol(expression_raw)) >= 0.001,]),] # Only take genes that  expressed in at least 1% of the spots
+
+    if (grepl("\\.parquet$", location_path, ignore.case = TRUE)) {
+      location <- read_parquet(location_path) %>%
+        as.data.frame() %>%
+        dplyr::select(barcode, imagerow = 3, imagecol = 4)
+    } else if (grepl("\\.csv$", location_path, ignore.case = TRUE)) {
+      location <- read.csv(location_path) %>%
+        as.data.frame() %>%
+        dplyr::select(barcode, imagerow = 3, imagecol = 4)
+    } else {
+      stop("Unsupported file format: must be .parquet or .csv")
+    }
+    
+    rownames(location) <- paste0(sample_id, "_", location$barcode)
+    location <- location[,-1]
+    colnames(location) <- c("imagerow", "imagecol")
+    location <- location[colnames(obj_sub), ]
+    LR <- SpaGene_LR(expression, location, LRpair = LRpair, knn = distance)
+    LR <- LR[which(LR$adjp < 0.05),]
+
+    lr_celltype_combined <- LR2Celltype(obj_sub, LR, expression)
+
+    return(lr_celltype_combined)
+}
+
+
+LR2Celltype <- function(obj,
+                        LR, 
+                        expression, 
+                        alpha = 0.5,       
+                        min_spots = 20,    
+                        nfolds_max = 5,    
+                        lambda_choice = c("lambda.1se","lambda.min")[1],
+                        top_n = 100,     
+                        expr_threshold = 0.98 ) { 
+  stopifnot(requireNamespace("glmnet", quietly = TRUE))
+  stopifnot(requireNamespace("future.apply", quietly = TRUE))
+  stopifnot(requireNamespace("dplyr", quietly = TRUE))
+
+  lr_names <- rownames(LR)
+  lr_split <- strsplit(lr_names, "_")
+  ligand <- sapply(lr_split, `[`, 1)
+  receptor <- sapply(lr_split, `[`, 2)
+  LR$ligand <- ligand
+  LR$receptor <- receptor
+
+  cell_prop <- obj@assays$rctd_full@data %>%
+    t() %>% as.data.frame(check.names = FALSE)
+
+  expression <- log(t(t(expression) / (colSums(expression)) * 10000) + 1)
+
+  filter_celltypes_by_expression <- function(gene_name, cell_prop_df, expr_matrix, top_n, expr_threshold) {
+    if (!(gene_name %in% rownames(expr_matrix))) return(character(0))
+    
+    gene_expr <- expr_matrix[gene_name, ]
+    valid_celltypes <- character(0)
+    
+    for (celltype in colnames(cell_prop_df)) {
+      celltype_prop <- cell_prop_df[[celltype]]
+      names(celltype_prop) <- rownames(cell_prop_df)
+      top_spots <- names(sort(celltype_prop, decreasing = TRUE)[1:min(top_n, length(celltype_prop))])
+      
+      top_spots <- intersect(top_spots, names(gene_expr))
+      if (length(top_spots) == 0) next
+      
+      expr_proportion <- sum(gene_expr[top_spots] > 0) / length(top_spots)
+      
+      if (expr_proportion >= expr_threshold) {
+        valid_celltypes <- c(valid_celltypes, celltype)
+      }
+    }
+    
+    return(valid_celltypes)
+  }
+
+  set.seed(123)
+  fit_enet_scores <- function(y_vec, X_df, spot_keep, valid_celltypes = NULL) {
+    spot_keep <- intersect(spot_keep, rownames(X_df))
+    if (length(spot_keep) < min_spots) return(NULL)
+
+    if (!is.null(valid_celltypes) && length(valid_celltypes) > 0) {
+      valid_celltypes <- intersect(valid_celltypes, colnames(X_df))
+      if (length(valid_celltypes) == 0) return(NULL)
+      X_df <- X_df[, valid_celltypes, drop = FALSE]
+    }
+
+    y <- as.numeric(y_vec[spot_keep])
+    X <- as.matrix(X_df[spot_keep, , drop = FALSE])
+
+    nzv <- apply(X, 2, sd, na.rm = TRUE) > 0
+    X <- X[, nzv, drop = FALSE]
+    
+    if (ncol(X) < 2) return(NULL)
+
+    nfolds <- min(nfolds_max, max(3, floor(length(spot_keep) / 5)))
+    
+    cvfit <- tryCatch({
+      glmnet::cv.glmnet(
+        x = X, y = y,
+        family = "gaussian",
+        alpha = alpha,
+        nfolds = nfolds,
+        standardize = TRUE,
+        intercept = TRUE #, lower.limits = 0
+      )
+    }, error = function(e) {
+      return(NULL)
+    })
+    
+    if (is.null(cvfit)) return(NULL)
+
+    lam <- if (lambda_choice == "lambda.min") cvfit$lambda.min else cvfit$lambda.1se
+    co <- as.matrix(glmnet::coef.glmnet(cvfit$glmnet.fit, s = lam))
+    co <- co[, 1, drop = TRUE]
+    co <- co[names(co) != "(Intercept)"]
+
+    co_pos <- co[co > 0]
+    if (length(co_pos) == 0) return(NULL)
+
+    scores <- co_pos / max(co_pos)
+
+    tibble::tibble(
+      celltype = names(scores),
+      score = as.numeric(scores)
+    )
+  }
+
+  process_lr <- function(i) {
+    lig <- LR$ligand[i]
+    rec <- LR$receptor[i]
+
+    if (!(lig %in% rownames(expression)) || !(rec %in% rownames(expression))) return(NULL)
+
+    ligand_expr   <- expression[lig, ]
+    receptor_expr <- expression[rec, ]
+
+    expr_region <- t(expression) %>% as.data.frame(check.names = FALSE)
+
+    ligand_spots_keep   <- rownames(expr_region)[ligand_expr > 0]
+    receptor_spots_keep <- rownames(expr_region)[receptor_expr > 0]
+
+    valid_ligand_celltypes <- filter_celltypes_by_expression(
+      lig, cell_prop, expression, top_n, expr_threshold
+    )
+    
+    valid_receptor_celltypes <- filter_celltypes_by_expression(
+      rec, cell_prop, expression, top_n, expr_threshold
+    )
+
+    ligand_df <- fit_enet_scores(y_vec = ligand_expr,
+                                 X_df  = cell_prop,
+                                 spot_keep = ligand_spots_keep,
+                                 valid_celltypes = valid_ligand_celltypes)
+    if (is.null(ligand_df)) return(NULL)
+
+    ligand_df <- ligand_df %>%
+      dplyr::transmute(ligand = lig, sender = .data$celltype, ligand_score = .data$score)
+
+    receptor_df <- fit_enet_scores(y_vec = receptor_expr,
+                                   X_df  = cell_prop,
+                                   spot_keep = receptor_spots_keep,
+                                   valid_celltypes = valid_receptor_celltypes)
+    if (is.null(receptor_df)) return(NULL)
+
+    receptor_df <- receptor_df %>%
+      dplyr::transmute(receptor = rec, receiver = .data$celltype, receptor_score = .data$score)
+
+    df <- dplyr::left_join(
+      LR[i, , drop = FALSE],
+      ligand_df,
+      by = "ligand"
+    ) %>% 
+      dplyr::left_join(receptor_df, by = "receptor")
+
+    df$interaction_strength <- sqrt(df$ligand_score * df$receptor_score)
+    df <- df %>%
+      dplyr::select(ligand, receptor, sender, receiver, adjp, interaction_strength)
+
+    df$LR <- rownames(LR)[i]
+    df
+  }
+
+  all_results <- future.apply::future_lapply(seq_len(nrow(LR)), process_lr)
+  final_df <- dplyr::bind_rows(all_results)
+  return(final_df)
+}
+
+############ Core identification function ##################
+filter_low_connectivity_areas <- function(sample_id, location_path, obj, size) {
+    obj_sub <- subset(obj, sampleID == sample_id)
+    if(sample_id == "visium_12"){
+      k_neighbors <- 6
+    } else {
+      k_neighbors <- 8
+    } 
+
+    if (grepl("\\.parquet$", location_path, ignore.case = TRUE)) {
+      location <- read_parquet(location_path) %>%
+        as.data.frame() %>%
+        dplyr::select(barcode, imagerow = 3, imagecol = 4)
+    } else if (grepl("\\.csv$", location_path, ignore.case = TRUE)) {
+      location <- read.csv(location_path) %>%
+        as.data.frame() %>%
+        dplyr::select(barcode, imagerow = 3, imagecol = 4)
+    } else {
+      stop("Unsupported file format: must be .parquet or .csv")
+    }
+    rownames(location) <- paste0(sample_id, "_", location$barcode)
+    location <- location[, c("imagerow", "imagecol")]
+    coord <- location[colnames(obj_sub), ]
+
+    d1 <- FNN::knn.dist(as.matrix(coord), k = 1)[, 1]
+    radius <- median(d1) * sqrt(2)
+
+    nb_all <- spdep::dnearneigh(coord, 0, radius)
+
+    edge_df <- data.frame(
+        from = rep(seq_along(nb_all), lengths(nb_all)),
+        to = unlist(nb_all)
+    )
+    edge_df <- subset(edge_df, from < to)
+    g <- graph_from_data_frame(edge_df, directed = FALSE,
+                               vertices = seq_along(nb_all))
+
+    cand_idx <- which(obj_sub$OHZ_flag == "TRUE")
+    subg <- induced_subgraph(g, vids = cand_idx)
+
+    comp <- clusters(subg)
+    keep_comp_ids <- which(comp$csize >= size)
+
+    obj_sub$OB_hotspot_final <- FALSE
+
+    if (length(keep_comp_ids) > 0) {
+        for (comp_id in keep_comp_ids) {
+            verts_in_comp <- which(comp$membership == comp_id)
+            orig_idx <- as.integer(V(subg)[verts_in_comp]$name)
+            obj_sub$OB_hotspot_final[orig_idx] <- TRUE
+        }
+    }
+    
+  
+  knn_result <- get.knnx(coord, coord, k = k_neighbors + 1)
+
+  n_spots <- nrow(coord)
+  adj_matrix <- matrix(0, n_spots, n_spots)
+
+  distance_threshold <- 2  
+
+  for (i in 1:n_spots) {
+    neighbors <- knn_result$nn.index[i, -1] 
+    distances <- knn_result$nn.dist[i, -1]
+    
+    valid_neighbors <- neighbors[distances < distance_threshold]
+    adj_matrix[i, valid_neighbors] <- 1
+    adj_matrix[valid_neighbors, i] <- 1 
+  }
+
+  core_idx <- which(obj_sub$OB_hotspot_final == "TRUE")
+  all_halo_idx <- c()
+  halo_distance <- 6
+
+  for (core in core_idx) {
+    other_cores <- core_idx[core_idx != core]
+    connected_neighbors <- get_connected_neighbors(core, adj_matrix, 
+                                                  max_distance = halo_distance, 
+                                                  exclude_idx = other_cores)
+    all_halo_idx <- c(all_halo_idx, connected_neighbors)
+  }
+
+  halo_idx <- unique(all_halo_idx)
+  halo_idx <- halo_idx[!halo_idx %in% core_idx]  
+
+  obj_sub$ring <- "Other"
+  obj_sub$ring[core_idx] <- "Core"
+  obj_sub$ring[halo_idx] <- "Halo"
+
+  return(obj_sub)
+}
+
