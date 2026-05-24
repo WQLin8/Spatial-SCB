@@ -1,3 +1,6 @@
+# =========================================================
+# Load Visium HD sample and add metadata
+# =========================================================
 load_hd_sample <- function(sample_name, batch, bone_loc, group,
                            has_capture = TRUE,
                            trab_col = "trab.segmentation") {
@@ -47,6 +50,10 @@ load_hd_sample <- function(sample_name, batch, bone_loc, group,
 
 
 ## ---- Cell state identification ----
+# =========================================================
+# Identify cell state using module scores
+# Use UCell and Seurat module scores to define marker-positive spatial spots.
+# =========================================================
 identify_cell_state <- function(obj, markers, name, quantile_cutoff = 0.9998) {
   
   markers <- intersect(markers, rownames(obj))
@@ -79,6 +86,10 @@ identify_cell_state <- function(obj, markers, name, quantile_cutoff = 0.9998) {
 }
 
 ## ---- Spatial plotting ----
+# =========================================================
+# Plot binary spatial annotations
+# Generate spatial plots for TRUE/FALSE cell-state or region annotations across samples.
+# =========================================================
 plot_spatial_binary <- function(obj, group, filename) {
   
   sample_ids <- unique(obj$sampleID)
@@ -102,6 +113,9 @@ plot_spatial_binary <- function(obj, group, filename) {
 }
 
 ## ---- Differential analysis + volcano ----
+# =========================================================
+# Run differential expression and volcano plot
+# =========================================================
 run_volcano <- function(obj, group, filename) {
   
   de <- FindMarkers(obj,
@@ -131,6 +145,9 @@ run_volcano <- function(obj, group, filename) {
 }
 
 ## ---- GO enrichment ----
+# =========================================================
+# Run GO enrichment for upregulated genes
+# =========================================================
 run_go <- function(de, filename) {
   
   sig <- rownames(subset(de, avg_log2FC > 0.5 & p_val_adj < 0.05))
@@ -152,6 +169,10 @@ run_go <- function(de, filename) {
 }
 
 # ===================== 4. Build Reference =====================
+# =========================================================
+# Build RCTD reference object
+# Combine single-cell reference counts with spatially identified adipocyte/osteoclast states for RCTD.
+# =========================================================
 build_reference <- function(sc, obj_spatial, label = "cell_type_lvl2") {
   
   common_genes <- intersect(rownames(sc), rownames(obj_spatial))
@@ -196,6 +217,10 @@ build_reference <- function(sc, obj_spatial, label = "cell_type_lvl2") {
   return(reference)
 }
 
+# =========================================================
+# Run RCTD deconvolution pipeline
+# Create and run the RCTD model using the spatial query and reference object.
+# =========================================================
 run_rctd_pipeline <- function(query, reference, cores = 20) {
   
   rctd <- create.RCTD(
@@ -211,6 +236,10 @@ run_rctd_pipeline <- function(query, reference, cores = 20) {
   return(rctd)
 }
 
+# =========================================================
+# Build SpatialRNA query object
+# Extract spatial counts and coordinates from a Seurat object for RCTD input.
+# =========================================================
 build_query <- function(obj) {
   
   counts <- GetAssayData(obj, slot = "counts", assay = "Spatial.056um")
@@ -233,6 +262,10 @@ build_query <- function(obj) {
 
 # ===================== 4. Core Identification =====================
 
+# =========================================================
+# Identify core spots from cell-type proportion
+# Define core spots based on high RCTD-estimated abundance of a selected cell type.
+# =========================================================
 identify_Core <- function(obj, celltype = "Osteoblast", quantile_cutoff = 0.85) {
   
   DefaultAssay(obj) <- "RCTD"
@@ -256,6 +289,10 @@ identify_Core <- function(obj, celltype = "Osteoblast", quantile_cutoff = 0.85) 
 
 # ===================== 5. Spatial Visualization =====================
 
+# =========================================================
+# Plot core spatial annotations
+# Visualize identified core regions across all samples with sample-specific plotting settings.
+# =========================================================
 plot_Core <- function(obj, group, filename) {
   
   sample_ids <- unique(obj$sampleID)
@@ -286,6 +323,10 @@ plot_Core <- function(obj, group, filename) {
 
 # ===================== 7. Core-Halo Visualization =====================
 
+# =========================================================
+# Plot core-halo ring regions
+# Visualize Core, Halo, and Other region labels across samples.
+# =========================================================
 plot_ring <- function(obj, filename) {
   
   sample_ids <- unique(obj$sampleID)
@@ -321,6 +362,10 @@ plot_ring <- function(obj, filename) {
 }
 
 
+# =========================================================
+# Prepare Hallmark gene sets
+# Download and filter MSigDB Hallmark gene sets to match genes in the expression matrix.
+# =========================================================
 get_hallmark_gene_sets <- function(expr_mat) {
   hallmark_sets <- msigdbr(species = "Homo sapiens", category = "H")
   gset <- split(x = hallmark_sets$gene_symbol, f = hallmark_sets$gs_name)
@@ -328,6 +373,10 @@ get_hallmark_gene_sets <- function(expr_mat) {
   gset[sapply(gset, length) >= 10 & sapply(gset, length) <= 5000]
 }
 
+# =========================================================
+# Prepare GO biological process gene sets
+# Download and filter MSigDB GO BP gene sets to match genes in the expression matrix.
+# =========================================================
 get_go_bp_gene_sets <- function(expr_mat) {
   human_go_bp <- msigdbr(species = "Homo sapiens",
                          collection = "C5",
@@ -338,6 +387,10 @@ get_go_bp_gene_sets <- function(expr_mat) {
   gset[sapply(gset, length) >= 10 & sapply(gset, length) <= 5000]
 }
 
+# =========================================================
+# Run GO biological process enrichment
+# Perform GO BP enrichment for a gene list and format the top enriched terms for plotting.
+# =========================================================
 run_go_enrichment <- function(genes, group_name, top_n = 10) {
   ego <- enrichGO(
     gene          = genes,
@@ -373,6 +426,10 @@ run_go_enrichment <- function(genes, group_name, top_n = 10) {
     mutate(Description = factor(Description, levels = Description))
 }
 
+# =========================================================
+# Plot GO enrichment dot plot
+# Generate a dot plot summarizing GO enrichment results by region/group.
+# =========================================================
 plot_go_dotplot <- function(go_df, outfile, width = 7, height = 6) {
   if (is.null(go_df) || nrow(go_df) == 0) return(invisible(NULL))
 
@@ -400,6 +457,9 @@ plot_go_dotplot <- function(go_df, outfile, width = 7, height = 6) {
   ggsave(outfile, p, width = width, height = height)
 }
 
+# =========================================================
+# Prepare DEG table with significance labels
+# =========================================================
 make_deg_table <- function(deg_df, fdr_cutoff = 0.05, logfc_cutoff = 0.1) {
   deg_df <- data.frame(deg_df)
   deg_df$gene_name <- rownames(deg_df)
@@ -411,6 +471,9 @@ make_deg_table <- function(deg_df, fdr_cutoff = 0.05, logfc_cutoff = 0.1) {
   deg_df
 }
 
+# =========================================================
+# Plot volcano with labeled DEGs
+# =========================================================
 plot_volcano_with_labels <- function(deg_df, title_text, outfile,
                                      fdr_cutoff = 0.05,
                                      logfc_cutoff = 0.1,
@@ -457,6 +520,10 @@ plot_volcano_with_labels <- function(deg_df, title_text, outfile,
   invisible(plot_df)
 }
 
+# =========================================================
+# Run GSVA pathway analysis with limma
+# Calculate GSVA scores and test pathway differences between case and control groups.
+# =========================================================
 run_gsva_limma <- function(seu_obj, assay = SPATIAL_ASSAY,
                            gene_set_type = c("hallmark", "go_bp")) {
   gene_set_type <- match.arg(gene_set_type)
@@ -506,6 +573,9 @@ run_gsva_limma <- function(seu_obj, assay = SPATIAL_ASSAY,
   topTable(fit2, coef = 1, n = Inf, adjust.method = "BH", sort.by = "P")
 }
 
+# =========================================================
+# Plot GSVA differential pathway bar chart
+# =========================================================
 plot_gsva_bar <- function(diff_df, outfile) {
   dat_plot <- data.frame(id = row.names(diff_df), t = diff_df$t)
   dat_plot$id <- str_replace(dat_plot$id, "GOBP_", "")
@@ -556,6 +626,10 @@ plot_gsva_bar <- function(diff_df, outfile) {
   ggsave(outfile, p, width = 16, height = 10)
 }
 
+# =========================================================
+# Run region-specific DEG and GO analysis
+# Find DEGs among spatial regions and run GO enrichment for Core, Halo, and Other regions.
+# =========================================================
 run_region_specific_go <- function(seu_obj, logfc_threshold_findall = 0.1,
                                    sig_logfc_cutoff = 0.5) {
   markers <- FindAllMarkers(
@@ -575,6 +649,9 @@ run_region_specific_go <- function(seu_obj, logfc_threshold_findall = 0.1,
   list(markers = markers, go_df = bind_rows(df_core, df_halo, df_other))
 }
 
+# =========================================================
+# Prepare RCTD proportions in long format
+# =========================================================
 prepare_rctd_long <- function(seu_obj, assay = RCTD_ASSAY) {
   DefaultAssay(seu_obj) <- assay
 
@@ -584,6 +661,10 @@ prepare_rctd_long <- function(seu_obj, assay = RCTD_ASSAY) {
 
   n <- length(rownames(core@assays[[assay]]@data))
 
+
+  # =========================================================
+  # Bind RCTD proportions with metadata
+  # =========================================================
   bind_region_block <- function(x) {
     df <- rbind(
       x@assays[[assay]]@data,
@@ -613,6 +694,11 @@ prepare_rctd_long <- function(seu_obj, assay = RCTD_ASSAY) {
   df_long
 }
 
+
+# =========================================================
+# Plot one cell-type proportion across regions
+# Generate a violin/box plot comparing one cell type across Core, Halo, and Other regions.
+# =========================================================
 plot_single_celltype_violin <- function(df_long, celltype_name, outfile) {
   data <- df_long[df_long$celltype == celltype_name, ]
   max_y <- max(data$proportion, na.rm = TRUE)
@@ -653,6 +739,10 @@ plot_single_celltype_violin <- function(df_long, celltype_name, outfile) {
   ggsave(outfile, p, width = 6, height = 5)
 }
 
+
+# =========================================================
+# Plot all cell-type proportions with broken y-axis
+# =========================================================
 plot_all_celltype_boxbreak <- function(df_long, outfile) {
   colours <- c("#F07B70", "#32B93D", "#6F9AFD")
 
@@ -677,7 +767,11 @@ plot_all_celltype_boxbreak <- function(df_long, outfile) {
   ggsave(outfile, p, width = 12, height = 4, device = cairo_pdf)
 }
 
+
 ######### LR colocalization function ##############
+# =========================================================
+# Run ligand-receptor spatial colocalization
+# =========================================================
 LR_Colco <- function(obj, 
                     sample_id, 
                     location_path, 
@@ -713,6 +807,10 @@ LR_Colco <- function(obj,
 }
 
 ########### Spatial cell-cell communication function ################
+# =========================================================
+# Infer spatial cell-cell communication
+# Run ligand-receptor colocalization and map significant pairs to sender/receiver cell types.
+# =========================================================
 LR2CellComm <- function(obj, 
                         sample_id, 
                         location_path, 
@@ -750,6 +848,10 @@ LR2CellComm <- function(obj,
 }
 
 
+# =========================================================
+# Assign ligand-receptor signals to cell types
+# Use elastic net regression to infer candidate sender and receiver cell types for LR pairs.
+# =========================================================
 LR2Celltype <- function(obj,
                         LR, 
                         expression, 
@@ -775,6 +877,9 @@ LR2Celltype <- function(obj,
 
   expression <- log(t(t(expression) / (colSums(expression)) * 10000) + 1)
 
+  # =========================================================
+  # Filter candidate cell types by gene expression
+  # =========================================================
   filter_celltypes_by_expression <- function(gene_name, cell_prop_df, expr_matrix, top_n, expr_threshold) {
     if (!(gene_name %in% rownames(expr_matrix))) return(character(0))
     
@@ -799,7 +904,13 @@ LR2Celltype <- function(obj,
     return(valid_celltypes)
   }
 
+
+
+
   set.seed(123)
+  # =========================================================
+  # Fit elastic net and score cell types
+  # =========================================================
   fit_enet_scores <- function(y_vec, X_df, spot_keep, valid_celltypes = NULL) {
     spot_keep <- intersect(spot_keep, rownames(X_df))
     if (length(spot_keep) < min_spots) return(NULL)
@@ -851,6 +962,10 @@ LR2Celltype <- function(obj,
     )
   }
 
+  # =========================================================
+  # Process one ligand-receptor pair
+  # Estimate sender and receiver cell-type scores for one ligand-receptor interaction.
+  # =========================================================
   process_lr <- function(i) {
     lig <- LR$ligand[i]
     rec <- LR$receptor[i]
@@ -911,7 +1026,11 @@ LR2Celltype <- function(obj,
   return(final_df)
 }
 
+
 ############ Core identification function ##################
+# =========================================================
+# Filter low-connectivity cores and define core-halo regions
+# =========================================================
 filter_low_connectivity_areas <- function(sample_id, location_path, obj, size) {
     obj_sub <- subset(obj, sampleID == sample_id)
     if(sample_id == "visium_12"){
@@ -1002,4 +1121,3 @@ filter_low_connectivity_areas <- function(sample_id, location_path, obj, size) {
 
   return(obj_sub)
 }
-
