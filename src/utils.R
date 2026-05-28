@@ -303,10 +303,10 @@ plot_Core <- function(obj, group, filename) {
     sample_obj <- subset(obj, sampleID == sample_ids[i])
     aspect_ratio <- get_image_aspect_ratio(sample_obj)
     
-    pt_size <- ifelse(sample_ids[i] == "visium_12", 2.5,
+    pt_size <- ifelse(sample_ids[i] == "v_01", 2.5,
                       ifelse(i == 1, 5, 3.2))
     
-    shape_type <- ifelse(sample_ids[i] == "visium_12", 21, 22)
+    shape_type <- ifelse(sample_ids[i] == "v_01", 21, 22)
     
     plots[[i]] <- SpatialDimPlot(
       sample_obj,
@@ -337,10 +337,10 @@ plot_ring <- function(obj, filename) {
     sample_obj <- subset(obj, sampleID == sample_ids[i])
     aspect_ratio <- get_image_aspect_ratio(sample_obj)
     
-    pt_size <- ifelse(sample_ids[i] == "visium_12", 2.5,
+    pt_size <- ifelse(sample_ids[i] == "v_01", 2.5,
                       ifelse(i == 1, 5, 3.2))
     
-    shape_type <- ifelse(sample_ids[i] == "visium_12", 21, 22)
+    shape_type <- ifelse(sample_ids[i] == "v_01", 21, 22)
     
     plots[[i]] <- SpatialDimPlot(
       sample_obj,
@@ -859,8 +859,7 @@ LR2Celltype <- function(obj,
                         min_spots = 20,    
                         nfolds_max = 5,    
                         lambda_choice = c("lambda.1se","lambda.min")[1],
-                        top_n = 100,     
-                        expr_threshold = 0.98 ) { 
+                        top_n = 100 ) { 
   stopifnot(requireNamespace("glmnet", quietly = TRUE))
   stopifnot(requireNamespace("future.apply", quietly = TRUE))
   stopifnot(requireNamespace("dplyr", quietly = TRUE))
@@ -880,7 +879,7 @@ LR2Celltype <- function(obj,
   # =========================================================
   # Filter candidate cell types by gene expression
   # =========================================================
-  filter_celltypes_by_expression <- function(gene_name, cell_prop_df, expr_matrix, top_n, expr_threshold) {
+  filter_celltypes_by_expression <- function(gene_name, cell_prop_df, expr_matrix, top_n) {
     if (!(gene_name %in% rownames(expr_matrix))) return(character(0))
     
     gene_expr <- expr_matrix[gene_name, ]
@@ -896,7 +895,7 @@ LR2Celltype <- function(obj,
       
       expr_proportion <- sum(gene_expr[top_spots] > 0) / length(top_spots)
       
-      if (expr_proportion >= expr_threshold) {
+      if (expr_proportion >= 0.98) {
         valid_celltypes <- c(valid_celltypes, celltype)
       }
     }
@@ -1033,7 +1032,7 @@ LR2Celltype <- function(obj,
 # =========================================================
 filter_low_connectivity_areas <- function(sample_id, location_path, obj, size) {
     obj_sub <- subset(obj, sampleID == sample_id)
-    if(sample_id == "visium_12"){
+    if(sample_id == "0.98"){
       k_neighbors <- 6
     } else {
       k_neighbors <- 8
