@@ -19,40 +19,40 @@ source("utils.R")
 DATA_DIR <- "~/spatial_bone_HD/Processed_data_via_SpaceRanger"
 OUT_DIR  <- "~/spatial_bone_HD"
 
-hd_68_1 <- load_hd_sample("Human_HD_68", 1, "Subchondral", "Case", TRUE)
-hd_68_2 <- load_hd_sample("Human_HD_68", 2, "Subchondral", "Case", FALSE, "trab_segmentation")
+hd_03 <- load_hd_sample("Human_HD_03", 1, "Subchondral", "Case", TRUE)
+hd_01 <- load_hd_sample("Human_HD_01", 2, "Subchondral", "Case", FALSE, "trab_segmentation")
 
-hd_82_1 <- load_hd_sample("Human_HD_82", 1, "Distant", "Control", TRUE)
-hd_82_2 <- load_hd_sample("Human_HD_82", 2, "Subchondral", "Case", FALSE, "trab.segmantation")
+hd_04 <- load_hd_sample("Human_HD_04", 1, "Distant", "Control", TRUE)
+hd_01 <- load_hd_sample("Human_HD_01", 2, "Subchondral", "Case", FALSE, "trab.segmantation")
 
 
-visium_12 <- Load10X_Spatial(file.path(DATA_DIR, "Human_Visium_12"))
+v_01 <- Load10X_Spatial(file.path(DATA_DIR, "Human_Visium_12"))
 
-DefaultAssay(visium_12) <- "Spatial"
-visium_12[["Spatial.056um"]] <- visium_12[["Spatial"]]
-visium_12@assays$Spatial <- NULL
+DefaultAssay(v_01) <- "Spatial"
+v_01[["Spatial.056um"]] <- v_01[["Spatial"]]
+v_01@assays$Spatial <- NULL
 
 DefaultAssay(visium_12) <- "Spatial.056um"
 
 # Fix image slot
-visium_12@images[["slice1.056um"]] <- visium_12@images[["slice1"]]
-visium_12@images[["slice1"]] <- NULL
-visium_12@images[["slice1.056um"]]@assay <- "Spatial.056um"
+v_01@images[["slice1.056um"]] <- v_01@images[["slice1"]]
+v_01@images[["slice1"]] <- NULL
+v_01@images[["slice1.056um"]]@assay <- "Spatial.056um"
 
 # Metadata
 trab <- read.csv(file.path(DATA_DIR, "trab_location/trab-12.csv"))
 rownames(trab) <- trab$Barcode
 trab$trab[trab$trab == ""] <- "marrow"
 
-visium_12$RegionType <- trab[colnames(visium_12), "trab"]
-visium_12 <- RenameCells(visium_12, add.cell.id = "visium_12")
-visium_12$sampleID <- "visium_12"
-visium_12$BoneLocation <- "Distant"
-visium_12$group <- "Control"
+v_01$RegionType <- trab[colnames(v_01), "trab"]
+v_01 <- RenameCells(v_01, add.cell.id = "visium_12")
+v_01$sampleID <- "v_01"
+v_01$BoneLocation <- "Distant"
+v_01$group <- "Control"
 
 hd <- merge(
-  hd_68_1,
-  y = list(hd_68_2, hd_82_1, hd_82_2, visium_12),
+  hd_03,
+  y = list(hd_01, hd_04, hd_02, v_01),
   project = "Human_Bone"
 )
 
