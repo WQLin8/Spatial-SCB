@@ -45,7 +45,7 @@ rownames(trab) <- trab$Barcode
 trab$trab[trab$trab == ""] <- "marrow"
 
 v_01$RegionType <- trab[colnames(v_01), "trab"]
-v_01 <- RenameCells(v_01, add.cell.id = "visium_12")
+v_01 <- RenameCells(v_01, add.cell.id = "v_01")
 v_01$sampleID <- "v_01"
 v_01$BoneLocation <- "Distant"
 v_01$group <- "Control"
