@@ -49,7 +49,7 @@ plot_spatial <- function(obj, sample_ids, color_mapping){
     aspect_ratio <- get_image_aspect_ratio(sample_obj)
 
     pt_size <- c(5,3.2,3.2,3.2,2.5)[i]
-    shape <- ifelse(sample_id == "visium_12", 21, 22)
+    shape <- ifelse(sample_id == "v_01", 21, 22)
 
     plots[[i]] <- SpatialDimPlot(
       sample_obj,
@@ -71,7 +71,7 @@ plot_spatial <- function(obj, sample_ids, color_mapping){
 
 pdf("01_spatial_map.pdf", 10, 8)
 print(plot_spatial(obj,
-                    c("hd_68_1","hd_68_2","hd_82_1","hd_82_2","visium_12"),
+                    c("hd_03","hd_01","hd_04","hd_02","v_01"),
                     color_mapping))
 dev.off()
 
@@ -143,12 +143,12 @@ build_cellchat <- function(obj, samples, location_paths, assay="Spatial.056um"){
 #### 3. Case analysis ###########################
 ##################################################
 
-samples_case <- c("hd_68_1","hd_68_2","hd_82_2")
+samples_case <- c("hd_03","hd_01","hd_02")
 
 location_case <- c(
-  "/Human_HD_68_batch1/...parquet",
-  "/Human_HD_68_batch2/...parquet",
-  "/Human_HD_82_batch2/...parquet"
+  "/Human_HD_03/...parquet",
+  "/Human_HD_01/...parquet",
+  "/Human_HD_02/...parquet"
 )
 
 cellchat.case <- build_cellchat(obj, samples_case, location_case)
@@ -192,11 +192,11 @@ dev.off()
 #### 4. Control analysis #########################
 ##################################################
 
-samples_control <- c("hd_82_1","visium_12")
+samples_control <- c("hd_04","v_01")
 
 location_control <- c(
-  "/82_batch1/...parquet",
-  "/visium12.csv"
+  "/Human_HD_04/...parquet",
+  "/Human_V_01/position.csv"
 )
 
 cellchat.control <- build_cellchat(obj, samples_control, location_control)
