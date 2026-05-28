@@ -30,13 +30,13 @@ obj_sub <- subset(obj, ring != "Other")
 #############################################################################
 
 sample_info <- tibble(
-  sample_id = c("hd_68_1","hd_68_2","hd_82_1","hd_82_2","visium_12"),
+  sample_id = c("hd_03","hd_01","hd_04","hd_02","v_01"),
   location_path = c(
-    "spatial/Human_HD_68_batch1/tissue_positions.parquet",
-    "spatial/Human_HD_68_batch2/tissue_positions.parquet",
-    "spatial/Human_HD_82_batch1/tissue_positions.parquet",
-    "spatial/Human_HD_82_batch2/tissue_positions.parquet",
-    "spatial/Human_Visium_12/tissue_positions.csv"
+    "spatial/Human_HD_03/tissue_positions.parquet",
+    "spatial/Human_HD_01/tissue_positions.parquet",
+    "spatial/Human_HD_04/tissue_positions.parquet",
+    "spatial/Human_HD_02/tissue_positions.parquet",
+    "spatial/Human_V_01/tissue_positions.csv"
   )
 )
 
