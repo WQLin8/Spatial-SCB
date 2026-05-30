@@ -150,8 +150,7 @@ Other commonly modified parameters include:
 | `sampleID` | Multiple scripts | Sample identifiers used to subset, merge, and plot spatial objects. |
 | `BoneLocation` | Multiple scripts | Metadata variable used to distinguish subchondral and distant/control regions. |
 | `group` | Multiple scripts | Case/control group label used for downstream comparison. |
-| `interaction.range` | `08_Inter-ecotype_communication.R` | Spatial interaction range used in CellChat communication probability calculation. |
-| `lambda_choice` | `utils.R` | Elastic net lambda selection method for cell type attribution; default is `lambda.1se`. |
+
 
 ## Troubleshooting
 
