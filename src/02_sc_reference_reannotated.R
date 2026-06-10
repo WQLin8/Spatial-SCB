@@ -79,7 +79,7 @@ mapping_lvl2 <- c(
   "GMP" = "MP",
   "Late Myeloid" = "MP",
   "Early Myeloid Progenitor" = "MP",
-  "pDC" = "CLP",
+  "pDC" = "DC",
   "Cycling DCs" = "DC",
   "Adipo-MSC" = "Adipo-MSC",
   "Osteo-MSC" = "Osteo-MSC",
