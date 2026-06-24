@@ -634,7 +634,6 @@ run_region_specific_go <- function(seu_obj, logfc_threshold_findall = 0.1,
                                    sig_logfc_cutoff = 0.5) {
   markers <- FindAllMarkers(
     seu_obj,
-    assays          = "data",
     only.pos        = FALSE,
     min.pct         = 0.01,
     logfc.threshold = logfc_threshold_findall
