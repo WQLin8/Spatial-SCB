@@ -49,7 +49,6 @@ Idents(obj) <- "ring"
 
 markers_all <- FindAllMarkers(
   obj,
-  assays          = "data",
   only.pos        = FALSE,
   min.pct         = 0.01,
   logfc.threshold = 0.01
