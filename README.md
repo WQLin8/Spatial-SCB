@@ -1,6 +1,6 @@
 # Spatial-SCB
 
-This repository contains the custom R scripts used for the spatial transcriptomics analysis of subchondral bone in this study. The workflow includes Visium HD/Visium preprocessing, single-cell reference re-annotation, spatial cell-state identification, RCTD-based cell type deconvolution, core-halo region identification, regional functional analysis, and spatial cell-cell communication analysis.
+This repository contains the custom R scripts used for the spatial transcriptomics analysis of subchondral bone in this study. The workflow includes Visium HD/Visium preprocessing, spatial cell-state identification, RCTD-based cell type deconvolution, core-halo region identification, regional functional analysis, and spatial cell-cell communication analysis.
 
 ## Repository structure
 
@@ -10,13 +10,12 @@ Spatial-SCB/
 ├── LICENSE
 └── src/
     ├── 01_data_processing.R
-    ├── 02_sc_reference_reannotated.R
-    ├── 03_extract_oc_ad_bins_16um.R
-    ├── 04_RCTD.R
-    ├── 05_Core_identification.R
-    ├── 06_Area_description.R
-    ├── 07_Spatial_ccc.R
-    ├── 08_Inter-ecotype_communication.R
+    ├── 02_extract_oc_ad_bins_16um.R
+    ├── 03_RCTD.R
+    ├── 04_Core_identification.R
+    ├── 05_Area_description.R
+    ├── 06_Spatial_ccc.R
+    ├── 07_Inter-ecotype_communication.R
     └── utils.R
 ```
 
@@ -24,17 +23,16 @@ All scripts are stored in the `src/` folder. The scripts are designed to be run 
 
 ## Workflow overview
 
-| Step | Script | Purpose |
-|---|---|---|
-| 1 | `01_data_processing.R` | Load and preprocess Visium HD/Visium spatial transcriptomics data, add sample metadata, filter spatial bins/spots, normalize data, perform dimensionality reduction and integration, and generate initial spatial visualizations. |
-| 2 | `02_sc_reference_reannotated.R` | Re-annotate the single-cell bone marrow reference, assign broad and refined cell type labels, validate marker expression, and save the refined reference object. |
-| 3 | `03_extract_oc_ad_bins_16um.R` | Identify osteoclast- and adipocyte-enriched spatial bins using marker-based module scores, generate spatial plots, differential expression results, and GO enrichment summaries. |
-| 4 | `04_RCTD.R` | Build the RCTD reference and spatial query objects, run RCTD deconvolution, normalize cell type weights, add the RCTD assay to the spatial Seurat object, and visualize cell type proportions. |
-| 5 | `05_Core_identification.R` | Define osteoblast-enriched core regions based on RCTD-estimated osteoblast proportions, remove low-connectivity regions, define halo regions around core areas, and save the core-halo annotated object. |
-| 6 | `06_Area_description.R` | Compare Core, Halo, and Other regions using differential expression, GO enrichment, GSVA/limma pathway analysis, and cell type composition visualization. |
-| 7 | `07_Spatial_ccc.R` | Perform spatial ligand-receptor co-localization analysis and infer sender-receiver cell type pairs for spatial cell-cell communication. |
-| 8 | `08_Inter-ecotype_communication.R` | Analyze inter-ecotype communication using spatial ecotype labels and CellChat-based communication inference. |
-| Helper | `utils.R` | Contains shared functions for data loading, plotting, RCTD preparation, core-halo visualization, enrichment analysis, ligand-receptor co-localization, and cell type attribution. |
+| Step   | Script                             | Purpose                                                                                                                                                                                                                           |
+| ------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1      | `01_data_processing.R`             | Load and preprocess Visium HD/Visium spatial transcriptomics data, add sample metadata, filter spatial bins/spots, normalize data, perform dimensionality reduction and integration, and generate initial spatial visualizations. |
+| 2      | `02_extract_oc_ad_bins_16um.R`     | Identify osteoclast- and adipocyte-enriched spatial bins using marker-based module scores, generate spatial plots, differential expression results, and GO enrichment summaries.                                                  |
+| 3      | `03_RCTD.R`                        | Build the RCTD reference and spatial query objects, run RCTD deconvolution, normalize cell type weights, add the RCTD assay to the spatial Seurat object, and visualize cell type proportions.                                    |
+| 4      | `04_Core_identification.R`         | Define osteoblast-enriched core regions based on RCTD-estimated osteoblast proportions, remove low-connectivity regions, define halo regions around core areas, and save the core-halo annotated object.                          |
+| 5      | `05_Area_description.R`            | Compare Core, Halo, and Other regions using differential expression, GO enrichment, GSVA/limma pathway analysis, and cell type composition visualization.                                                                         |
+| 6      | `06_Spatial_ccc.R`                 | Perform spatial ligand-receptor co-localization analysis and infer sender-receiver cell type pairs for spatial cell-cell communication.                                                                                           |
+| 7      | `07_Inter-ecotype_communication.R` | Analyze inter-ecotype communication using spatial ecotype labels and CellChat-based communication inference.                                                                                                                      |
+| Helper | `utils.R`                          | Contains shared functions for data loading, plotting, RCTD preparation, core-halo visualization, enrichment analysis, ligand-receptor co-localization, and cell type attribution.                                                 |
 
 ## Software requirements
 
@@ -120,13 +118,12 @@ Then run the scripts in order:
 
 ```bash
 Rscript 01_data_processing.R
-Rscript 02_sc_reference_reannotated.R
-Rscript 03_extract_oc_ad_bins_16um.R
-Rscript 04_RCTD.R
-Rscript 05_Core_identification.R
-Rscript 06_Area_description.R
-Rscript 07_Spatial_ccc.R
-Rscript 08_Inter-ecotype_communication.R
+Rscript 02_extract_oc_ad_bins_16um.R
+Rscript 03_RCTD.R
+Rscript 04_Core_identification.R
+Rscript 05_Area_description.R
+Rscript 06_Spatial_ccc.R
+Rscript 07_Inter-ecotype_communication.R
 ```
 
 The scripts can also be run interactively in RStudio by opening each script and running the sections sequentially.
@@ -144,13 +141,12 @@ OUT_DIR  <- "path/to/local/project/results"
 
 Other commonly modified parameters include:
 
-| Parameter | Used in | Description |
-|---|---|---|
-| `bin.size` | `01_data_processing.R` | Spatial bin size used when loading Visium HD data. |
-| `sampleID` | Multiple scripts | Sample identifiers used to subset, merge, and plot spatial objects. |
-| `BoneLocation` | Multiple scripts | Metadata variable used to distinguish subchondral and distant/control regions. |
-| `group` | Multiple scripts | Case/control group label used for downstream comparison. |
-
+| Parameter      | Used in                | Description                                                                    |
+| -------------- | ---------------------- | ------------------------------------------------------------------------------ |
+| `bin.size`     | `01_data_processing.R` | Spatial bin size used when loading Visium HD data.                             |
+| `sampleID`     | Multiple scripts       | Sample identifiers used to subset, merge, and plot spatial objects.            |
+| `BoneLocation` | Multiple scripts       | Metadata variable used to distinguish subchondral and distant/control regions. |
+| `group`        | Multiple scripts       | Case/control group label used for downstream comparison.                       |
 
 ## Troubleshooting
 
